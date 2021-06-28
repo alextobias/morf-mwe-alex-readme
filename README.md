@@ -35,18 +35,39 @@ With conda set up, I created a Python 3.8 environment with the following package
 - numpy
 ```
 
-Aside from python packages, I also needed to install the following (which I also installed via conda)
-
+Aside from python packages, I also needed to install the following (some may be available via conda, some may not)
 ```
 - TODO: list missing other packages
 - boto3 (for AWS mailing)
 - s3fs-fuse (to 'mount' an s3 bucket as a volume)
+- aws-cli
 ```
 
-## 2. Setting up directories
+## 2. Setting up directories & file storage
+
 Think about where you'll store or mount the directories containing course data, and where you want any results to be output.
 
-// todo: explain how the input/output directories are structured, and what folders need to be created
+For me, I created a directory `/home/[my_user_name]/morf/backend/` which contained both the course data and output from the MORF backend. I'll be referring to this as `/.../backend/` from this point on.
+
+This isn't a hard rule, and if you want to change any of this then be sure to update the `configs/app.cfg` file accordingly in the morf backend code. 
+
+You'll now need to create the following directories:
+- `/.../backend/morf-data/`, which is where you should store your course data.
+- `/.../backend/output/`, which is where job output from the MORF backend will go. 
+- `/.../backend/submitted_job_files/`, which is where submitted jobs will be kept.
+
+Specifically, for the `morf-data/` directory above, you may want to mount the s3 bucket where the course data is kept. You can do this with `s3fs morf-upenn morf-upenn -o allow_other -d`, though I haven't actually done this myself.
+
+For my own testing purposes (locally, of course), I simply downloaded the relevant course data and placed  it in that `morf-data/` folder. For the MWE, this means the entire `accounting/` course data folder, plus the files `coursera_course_dates.csv`, `labels-test.csv` and `labels-train.csv`.
+
+Now you'll need to point the morf backend to these folders.
+
+In the morf backend directory, navigate to `configs/app.cfg` and change:
+- `job_zip_file_storage_path` to point to wherever you put the `submitted_job_files` directory above.
+- `morf_data_docker_volume` to point to wherever you put the `output` directory above.
+- `job_zip_file_storage_path` to point to wherever you put the `morf-data` directory above.
+
+The reason you need to create these manually is because the morf backend will freak out if the directories don't exist.
 
 ## 3. Setting up authentication and API keys
 With all the above packages installed, you'll have to manually modify the config files for things like secrets and private keys.
