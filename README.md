@@ -65,9 +65,11 @@ The MWE can be found at https://github.com/pcla-code/morf-job-mwe.
 
 This submission part of the process is what the MORF API is intended for. If you know how to manage your own python environment, you can probably go ahead and install the library yourself (https://pypi.org/project/morf-api/).
 
-For my own purposes, I wanted to keep everything in a conda environment, and the morf-api package is not available in conda-forge. I was able to work around this by downloading the morf-api source, and importing it as a local module.
+For my own purposes, I wanted to keep everything in a conda environment, and the morf-api package is not available in conda-forge. My workaround is as follows:
 
-// todo: fill in more detail about how I imported the api as a local module without pip installing it 
+I accessed the morf-job-api source from https://github.com/pcla-code/morf-job-api. There, in `morf-job-api/morfjobapi/morf_job_utils.py`, there's a function `submit_job`, which contains the logic for submitting the specified job to the specified morf api endpoint. I then imported this function into a jupyter notebook which I used for job submission (but you don't have to use a notebook, the point is that this function is what you should look at).
+
+Remember that you'll also need to specify your generated API key, as described above (TODO)
 
 
 ## About MORF
