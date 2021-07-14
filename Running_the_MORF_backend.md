@@ -1,7 +1,7 @@
-# MORF MWE - README
+# MORF - Running the MORF Backend and MWE
 This document maintained by [Alex Tobias](https://github.com/alextobias) (for the [University of Pennsylvania Center for Learning Analytics]((https://www.upenn.edu/learninganalytics/)))
 
-## Introduction (read this first)
+## Document Purpose (read this first)
 
 This document is to record the steps I took, and hiccups I encountered, in running the MORF MWE. It will help serve as a FAQ/README for new users of MORF, and a resource for the developers of MORF to improve usability.
 
@@ -12,6 +12,7 @@ Links:
 - [MORF MWE](https://github.com/pcla-code/morf-job-mwe)
 
 ## Brief Overview
+MORF is a platform where researchers can construct and evaluate predictive models from raw MOOC platform data. 
 
 The MORF backend is a Flask application. It's normally hosted on an EC2 instance. Put simply, it accepts jobs, runs them according to the controller script, then emails the results to the submitter.
 
@@ -94,7 +95,7 @@ For my own purposes, I wanted to keep everything in a conda environment, and the
 
 I accessed the morf-job-api source from https://github.com/pcla-code/morf-job-api. There, in `morf-job-api/morfjobapi/morf_job_utils.py`, there's a function `submit_job`, which contains the logic for submitting the specified job to the specified morf api endpoint. I then imported this function into a jupyter notebook which I used for job submission (but you don't have to use a notebook, the point is that this function is what you should look at).
 
-Remember that you'll also need to specify your generated API key, as described above (TODO)
+Remember that you'll also need to specify your generated API key, as described above (TODO).
 
 
 ## Addendum: About MORF
