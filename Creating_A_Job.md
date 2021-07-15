@@ -8,6 +8,8 @@ This document is to walk a user through the steps needed to submit a job to MORF
 
 To do this, it walks the user through the simple minimum working example (MWE), which can be found here: [MORF MWE](https://github.com/pcla-code/morf-job-mwe)
 
+Some of the notes here have been drawn from the [MORF documentation](https://educational-technology-collective.github.io/morf/documentation/), which is also a great resource.
+
 ## Overview
 MORF is a platform where researchers can construct and evaluate predictive models from raw MOOC platform data. 
 
@@ -63,11 +65,117 @@ The clickstream data is stored in JSON format.
 
 The other files (with the exception of the HTML file) are flat SQL files, so they  contain not only the data itself, but also the SQL commands needed to set up the tables, import the data, etc. Running them in MySQL will automatically set everything up for you. 
 
-*Because the data is stored in these flat JSON/SQL files, the way you'll need to interact with the data job looks like this:*
+**Because the data is stored in these flat JSON/SQL files, this is how you'll need your job to interact with the course data:**
 - Use the dockerfile to specify that MySQL should be installed in the docker container that will be created for running your job.
 - In your job script, import the SQL files into the MySQL instance that runs inside your docker container.
 - In your job script, run SQL queries to obtain the data needed for your feature extraction.
 
-We will go into more information on this, later in the document. 
-By doing this, the MORF backend itself doesn't need to run a MySQL instance - each job has its own MySQL instance in its docker container.
+This is important to understand since the MORF backend itself doesn't run a MySQL instance - each job must instantiate its own MySQL instance in its docker container.
+
+
+## Docker & MORF
+
+This section describes some Docker basics for using the MORF platform, including creating Dockerfiles and building images from Dockerfiles. It also gives some additional information on how MORF runs Docker images internally and what command line arguments any submitted Docker image needs to accept.
+
+This document assumes you have Docker installed. For more information about Docker, including installation instructions, see [Docker installation instructions](https://docs.docker.com/engine/install/) and [Getting Started with Docker](https://docs.docker.com/get-started/).
+
+The Docker image you provide will be run in a non-networked environment with /input/ and /output/ directories mounted in its filesystem.
+
+### Creating a project Dockerfile
+
+A Dockerfile is a text file that contains instructions for building your Docker image. The exact contents of this file depend on (a) the software dependencies of your MORF project code, which may include (for example) scripts written in Python, Java, R, or other languages; and (b) the actual code needed to run for your MORF workflow (feature extraction, training, and testing). You can create this file using any text editor; save it with no extension and name it dockerfile. 
+
+Note that, because the Docker image does not have network access (for security reasons), any required libraries or software packages required by your code should be installed in the Docker image.
+
+Let's look at what the MWE dockerfile looks like:
+
+### Dockerfile
+```Dockerfile
+# Specifies that our base image will be ubuntu 20.04
+FROM ubuntu:20.04
+
+# install Python 
+RUN apt update
+RUN apt install -y python3-pip
+
+# install Python libraries
+RUN pip3 install pandas numpy scikit-learn
+
+# install MySQL and add configurations
+RUN echo "mysql-server mysql-server/root_password password root" | debconf-set-selections && \
+  echo "mysql-server mysql-server/root_password_again password root" | debconf-set-selections && \
+  apt-get -y install mysql-server && \
+  echo "secure-file-priv = \"\"" >>  /etc/mysql/mysql.conf.d/mysqld.cnf
+RUN usermod -d /var/lib/mysql/ mysql
+
+# add scripts
+ADD mwe.py mwe.py
+ADD workflow workflow
+
+# define entrypoint
+ENTRYPOINT ["python3", "mwe.py"]
+```
+
+Visit the [dockerfile documentation](https://docs.docker.com/engine/reference/builder/) for more detail on what these instructions tell docker to do. 
+
+This Dockerfile has seven distinct steps, and demonstrates a typical workflow for MORF which uses Python3 and mySQL. Let’s walk through each step.
+
+#### 1) Pull base image
+```dockerfile
+FROM ubuntu:20.04
+```
+This command defines the base ubuntu 20.04 image to use as the first layer for building the Docker image.
+
+We recommend starting from one of Docker’s base images unless the environment you need isn’t available. Check the official [Docker library](https://github.com/docker-library/official-images/tree/master/library) for a list of available image tags.
+
+#### 2) Install Python (python3) and libraries (pandas, numpy, scikit-learn)
+```dockerfile
+# install Python 
+RUN apt update
+RUN apt install -y python3-pip
+
+# install Python libraries
+RUN pip3 install pandas numpy scikit-learn
+```
+These commands use the Docker keyword RUN to define commands that should be literally executed in the image. Note that each of these commands would normally by entered at an ubuntu command line prompt; Docker does this when building the image.
+
+We also use pip to install Python libraries that are used in the feature extraction and modeling code in the MWE.
+
+#### 3) Install configure, and run MySQL
+```dockerfile
+RUN echo "mysql-server-5.7 mysql-server/root_password password root" | sudo debconf-set-selections && \
+  echo "mysql-server-5.7 mysql-server/root_password_again password root" | sudo debconf-set-selections && \
+  apt-get -y install mysql-server-5.7 && \
+  echo "secure-file-priv = \"\"" >>  /etc/mysql/mysql.conf.d/mysqld.cnf
+RUN usermod -d /var/lib/mysql/ mysql
+```
+This step installs mySQL, sets the root password, and sets the secure-file-priv option to allow for exporting of query results to a file (using mySQL’s INTO OUTFILE command requires setting this option).
+
+The database exports in MORF are provided as MySQL dumps, and accessing them requires mySQL. Jobs that do not use data from the MySQL dumps can skip this step.
+
+The last line starts MySQL. An alternative is simply `RUN service mysql start`.
+
+#### 4) Add scripts
+```dockerfile
+# add scripts
+ADD mwe.py mwe.py
+ADD workflow workflow
+```
+This step adds scripts and directories from the local directory to the dockerfile itself.
+
+What we are doing here is adding scripts from the 'workflow' folder, which are used in the extract, train, and test workflow; mwe.py is a simple script that reads the input from the docker run command in MORF and uses it to control the flow of execution.
+
+Any modules, code, or other files you want to be available inside your Docker image during execution must be added by using ADD in your dockerfile; no code can be downloaded or installed during execution.
+
+#### 5) Define entrypoint
+```dockerfile
+ENTRYPOINT ["python3", "mwe.py"]
+```
+This command uses Docker’s ENTRYPOINT keyword to define an entrypoint for execution.
+
+Whenever this image is executed by MORF, this line tells the image to automatically execute python3 mwe.py instead of entering any other shell. Note that MORF will also pass the --mode flag used to control the script when calling your script, so whichever script is defined as the ENTRYPOINT should expect a command-line argument for mode which takes the values described below.
+
+
+
+
 
