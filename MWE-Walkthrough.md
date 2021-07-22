@@ -10,12 +10,27 @@
 
 Let's start with the Dockerfile.
 
-### Dockerfile
+Table of Contents
+=================
+
+* [MORF-MWE-WALKTHROUGH](#morf-mwe-walkthrough)
+   * [Dockerfile](#dockerfile)
+   * [Minimum Working Example - <strong>mwe.py</strong>](#minimum-working-example---mwepy)
+      * [Extracting the Data - <strong>extract_sessions</strong>](#extracting-the-data---extract_sessions)
+         * [Extracting Data from Coursera <strong>extract_coursera_sql_data</strong>](#extracting-data-from-coursera-extract_coursera_sql_data)
+         * [Pulling Features <strong>extract_features</strong>](#pulling-features-extract_features)
+         * [<strong>extract_users</strong>](#extract_users)
+      * [<strong>build_course_dataset</strong>](#build_course_dataset)
+      * [<strong>train_test_course</strong>](#train_test_course)
+   * [After job execution](#after-job-execution)
+
+
+## Dockerfile
 ```Dockerfile
 # Specifies that our base image will be ubuntu 20.04
 FROM ubuntu:20.04
 
-# install Python 
+# install Python
 RUN apt update
 RUN apt install -y python3-pip
 
@@ -23,7 +38,7 @@ RUN apt install -y python3-pip
 RUN pip3 install pandas numpy scikit-learn
 
 # install MySQL and add configurations
-# The database exports in MORF are provided as MySQL dumps, and accessing them requires MySQL. 
+# The database exports in MORF are provided as MySQL dumps, and accessing them requires MySQL.
 # Jobs that do not use data from the MySQL dumps can skip this step.
 RUN echo "mysql-server mysql-server/root_password password root" | debconf-set-selections && \
   echo "mysql-server mysql-server/root_password_again password root" | debconf-set-selections && \
@@ -39,12 +54,12 @@ ADD workflow workflow
 ENTRYPOINT ["python3", "mwe.py"]
 ```
 
-Visit the [dockerfile documentation](https://docs.docker.com/engine/reference/builder/) for more detail on what these instructions tell docker to do. 
+Visit the [dockerfile documentation](https://docs.docker.com/engine/reference/builder/) for more detail on what these instructions tell docker to do.
 
 The line `ENTRYPOINT ["python3", "mwe.py"]` specifies that the dockerpoint will use `mwe.py` as an entrypoint for execution. Let's look at `mwe.py` now.
 
 
-## **`mwe.py`**
+## Minimum Working Example - **`mwe.py`**
 
 ```python
 from workflow.extraction.extractors import extract_sessions
@@ -64,25 +79,25 @@ The first thing we do is import our main job functions from the `workflow` folde
 
 You can see that the MWE structures its job in 3 main steps:
 
-1) `extract_sessions` 
-- This is where course session data is pulled and features are extracted. 
-- The result of this is a variety of CSVs containing results queried from the course data. 
+1) `extract_sessions`
+- This is where course session data is pulled and features are extracted.
+- The result of this is a variety of CSVs containing results queried from the course data.
 - These CSVs are stored in the docker container, and are separated by course and session in a folder `/temp-data/` (e.g. `/temp-data/accounting/001`)
 
-2) `build_course_dataset` 
+2) `build_course_dataset`
 - This step combines the data obtained from each course & session, and performs feature extraction on the data.
 - The result of this is a file `course_dataset.csv`, again local to the docker container.
 - This csv file will be used in the next step to construct a model.
 
-3) `train_test_course` 
-- This step takes `course_dataset.csv` and performs a logistic regression on it, and then assesses the accuracy of the model. 
+3) `train_test_course`
+- This step takes `course_dataset.csv` and performs a logistic regression on it, and then assesses the accuracy of the model.
 - The output of this step is a file `output.csv.`, which is not local to the docker container, but is saved in the MORF backend.
 
 **After** the steps in the job are executed, the MORF backend takes `output.csv`, and evaluates it on a variety of metrics, such as its accuracy, Cohen's kappa, etc. This produces a file, eval.csv, which gets emailed to the address specified in the job submission. **This step is done by the MORF backend for every job, so you won't see code for this in the MWE example.**
 
 Let's look now at `extract_sessions`:
 
-### **`extract_sessions`**
+### Extracting the Data - **`extract_sessions`**
 ```python
 def extract_sessions(course_name):
     dir = '/morf-data/' + course_name
@@ -91,13 +106,13 @@ def extract_sessions(course_name):
         extract_features(course_name, session.split('/')[-1])
 ```
 
-Here, the MWE takes the supplied course name ("accounting", in this case), and loops through each session offered under the course name. 
+Here, the MWE takes the supplied course name ("accounting", in this case), and loops through each session offered under the course name.
 
 We now have two functions, `extract_coursera_sql_data` and `extract_features`, which are executed for each course session.
 
 Let's now take a look at extract_coursera_sql_data:
 
-#### **`extract_coursera_sql_data`**
+#### Extracting Data from Coursera **`extract_coursera_sql_data`**
 ```python
 def extract_coursera_sql_data(course, session, forum_comment_filename="forum_comments.csv", forum_post_filename="forum_posts.csv"):
     """
@@ -124,7 +139,7 @@ def extract_coursera_sql_data(course, session, forum_comment_filename="forum_com
     # this function starts a running mysql process in the docker container
     initialize_database()
 
-    # takes the paths to the SQL files specified above and loads them into the SQL process 
+    # takes the paths to the SQL files specified above and loads them into the SQL process
     # MODIFY according to your needs
     load_mysql_dump(os.path.join(course_session_dir, forum_sql_dump))
     load_mysql_dump(os.path.join(course_session_dir, hash_mapping_sql_dump))
@@ -153,12 +168,12 @@ The important takeaways from here are that:
 - Notice that the MWE creates a `/temp-data/` folder, which is a **folder local to the Docker container** where the output from the queries will go.
 - The `execute_mysql_query_into_csv` function calls execute the specified queries and save them to CSVs in the aforementioned `/temp-data/` folder.
 - To understand the database schema in more depth, you can refer to these links:
-  - [https://spark-public.s3.amazonaws.com/mooc/data_exports.pdf](https://spark-public.s3.amazonaws.com/mooc/data_exports.pdf) 
+  - [https://spark-public.s3.amazonaws.com/mooc/data_exports.pdf](https://spark-public.s3.amazonaws.com/mooc/data_exports.pdf)
 
 
 Now that our queries have been executed and saved as CSV files, let's look at the `extract_features` function.
 
-#### **`extract_features`**
+#### Pulling Features **`extract_features`**
 ```python
 def main(course, session, n_feature_weeks=4, out_dir="/temp-data"):
     """
@@ -199,12 +214,12 @@ The result of this feature extraction is a table of userID, week number, and the
 
 e.g.
 | userID | week | forum_posts |
-| ------ | ---- | ----------- | 
+| ------ | ---- | ----------- |
 | a2f2ed432d514461136c895ab8bc47e23fd0011d | 0 | 0 |
 | a2f2ed432d514461136c895ab8bc47e23fd0011d | 1 | 0 |
 | a2f2ed432d514461136c895ab8bc47e23fd0011d | 2 | 0 |
 | ...                                      | ... | ... |
-| dba1c435cdfdaa383458560cf2969c404895abe8 | 10 | 0 | 
+| dba1c435cdfdaa383458560cf2969c404895abe8 | 10 | 0 |
 
 
 
@@ -242,10 +257,9 @@ def extract_users(coursera_clickstream_file, course_start, course_end):
     return users
 ```
 
+### **`build_course_dataset`**
 Now we move onto the second major step, `build_course_dataset`, which combines all these per-session tables into one table for the whole course.
 
-
-### **`build_course_dataset`**
 ```python
 def build_course_dataset(course, label_type):
     dir = '/temp-data/' + course
@@ -324,4 +338,4 @@ Next, we predict class labels, and obtain probability estimates for samples in o
 
 ## After job execution
 
-This concludes the execution of the MWE. The result, `output.csv` is then evaluated by the morf backend on a variety of statistical scores, resulting in a file `eval.csv`, which will be emailed to the submitter when the evaluation has finished.
+This concludes the execution of the MWE. The result, `output.csv` is then evaluated by the MORF on a variety of statistical scores, resulting in a file `eval.csv`, which will be emailed to the submitter when the evaluation has finished.
