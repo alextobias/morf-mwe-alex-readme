@@ -85,6 +85,7 @@ The Docker image you provide will be run in a non-networked environment with /in
 
 A Dockerfile is a text file that contains instructions for building your Docker image. The exact contents of this file depend on (a) the software dependencies of your MORF project code, which may include (for example) scripts written in Python, Java, R, or other languages; and (b) the actual code needed to run for your MORF workflow (feature extraction, training, and testing). You can create this file using any text editor; save it with no extension and name it dockerfile. 
 
+**note - outdated, to remove**
 Note that, because the Docker image does not have network access (for security reasons), any required libraries or software packages required by your code should be installed in the Docker image.
 
 Let's look at what the MWE dockerfile looks like:
