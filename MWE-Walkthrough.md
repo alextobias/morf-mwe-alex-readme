@@ -23,7 +23,8 @@ RUN apt install -y python3-pip
 RUN pip3 install pandas numpy scikit-learn
 
 # install MySQL and add configurations
-# The database exports in MORF are provided as MySQL dumps, and accessing them requires MySQL. Jobs that do not use data from the MySQL dumps can skip this step.
+# The database exports in MORF are provided as MySQL dumps, and accessing them requires MySQL. 
+# Jobs that do not use data from the MySQL dumps can skip this step.
 RUN echo "mysql-server mysql-server/root_password password root" | debconf-set-selections && \
   echo "mysql-server mysql-server/root_password_again password root" | debconf-set-selections && \
   apt-get -y install mysql-server && \
@@ -31,7 +32,6 @@ RUN echo "mysql-server mysql-server/root_password password root" | debconf-set-s
 RUN usermod -d /var/lib/mysql/ mysql
 
 # add scripts and directories from the local directory to the dockerfile itself
-# Any modules, code, or other files you want to be available inside your Docker image during execution must be added by using ADD in your dockerfile; no code can be downloaded or installed during execution.
 ADD mwe.py mwe.py
 ADD workflow workflow
 
