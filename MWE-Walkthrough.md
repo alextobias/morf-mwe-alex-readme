@@ -41,8 +41,6 @@ ENTRYPOINT ["python3", "mwe.py"]
 
 Visit the [dockerfile documentation](https://docs.docker.com/engine/reference/builder/) for more detail on what these instructions tell docker to do. 
 
-
-
 The line `ENTRYPOINT ["python3", "mwe.py"]` specifies that the dockerpoint will use `mwe.py` as an entrypoint for execution. Let's look at `mwe.py` now.
 
 
@@ -269,7 +267,7 @@ def build_course_dataset(course, label_type):
     return
 ```
 
-What this code is doing is taking all the CSVs we previously generated, (each user's forum posts each week during each course session), and combining them into one table.
+What this code is doing is taking all the CSVs we previously generated, (each user's forum posts each week during each course session), and combining them into one table. It also adds a column to indicate whether that student dropped the course or not. (The `label_type` variable was passed in as 'dropout').
 
 You may look through the code if you wish to understand what it's doing in greater depth, but it is mostly data wrangling.
 
@@ -304,3 +302,26 @@ def train_test_course(course):
                           proba[1] for proba in y_score]})
     output.to_csv('/output/output.csv', index=False)
 ```
+
+Now, we take the `course_dataset.csv` file we generated in the last step, and open it as a pandas DataFrame.
+
+We use `train_test_split` to split our data into random train and test subsets. Then we fit a logistic regression to the training subset.
+
+Note where we use `random_state=1`. By providing an integer to seed random number generation, we can produce the same results across different calls. Please consider reproducibility when writing MORF jobs. For more information, see the [sklearn documentation](https://scikit-learn.org/stable/glossary.html#term-random_state) on `random_state`.
+
+Next, we predict class labels, and obtain probability estimates for samples in our test data. This is then written to `/output/output.csv`, which looks like this:
+
+| y_true | y_pred | y_score |
+| ------ | ------ | ------- |
+|  1  |  1  | 0.743688119086647 |
+|  1  |  1  | 0.743688119086647 |
+|  1  |  1  | 0.743688119086647 |
+| ... | ... | ... |
+
+
+**This `output.csv` is **NOT** local to the dockerfile; it is saved in the MORF backend.**
+
+
+## After job execution
+
+This concludes the execution of the MWE. The result, `output.csv` is then evaluated by the morf backend on a variety of statistical scores, resulting in a file `eval.csv`, which will be emailed to the submitter when the evaluation has finished.
