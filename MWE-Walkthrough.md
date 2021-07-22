@@ -46,7 +46,7 @@ Visit the [dockerfile documentation](https://docs.docker.com/engine/reference/bu
 The line `ENTRYPOINT ["python3", "mwe.py"]` specifies that the dockerpoint will use `mwe.py` as an entrypoint for execution. Let's look at `mwe.py` now.
 
 
-### mwe.py
+## **`mwe.py`**
 
 ```python
 from workflow.extraction.extractors import extract_sessions
@@ -84,7 +84,7 @@ You can see that the MWE structures its job in 3 main steps:
 
 Let's look now at `extract_sessions`:
 
-### extract_sessions
+### **`extract_sessions`**
 ```python
 def extract_sessions(course_name):
     dir = '/morf-data/' + course_name
@@ -95,11 +95,11 @@ def extract_sessions(course_name):
 
 Here, the MWE takes the supplied course name ("accounting", in this case), and loops through each session offered under the course name. 
 
-We now have two functions, `extract_coursera_sql_data` and `extract_features`
+We now have two functions, `extract_coursera_sql_data` and `extract_features`, which are executed for each course session.
 
 Let's now take a look at extract_coursera_sql_data:
 
-**extract_coursera_sql_data**
+#### **`extract_coursera_sql_data`**
 ```python
 def extract_coursera_sql_data(course, session, forum_comment_filename="forum_comments.csv", forum_post_filename="forum_posts.csv"):
     """
@@ -160,7 +160,7 @@ The important takeaways from here are that:
 
 Now that our queries have been executed and saved as CSV files, let's look at the `extract_features` function.
 
-**extract_features**
+#### **`extract_features`**
 ```python
 def main(course, session, n_feature_weeks=4, out_dir="/temp-data"):
     """
@@ -206,15 +206,17 @@ e.g.
 | a2f2ed432d514461136c895ab8bc47e23fd0011d | 1 | 0 |
 | a2f2ed432d514461136c895ab8bc47e23fd0011d | 2 | 0 |
 | ...                                      | ... | ... |
+| dba1c435cdfdaa383458560cf2969c404895abe8 | 10 | 0 | 
 
 
 
-**Recall that `extract_sessions` calls this function in a loop, for every session of the course. So each CSV output that we get here is still on a per-session basis. That's where the next part comes in; we need to combine this data across all sessions.**
+**Recall that `extract_sessions` calls `extract_coursera_sql_data` and `extract_features` in a loop, for every session of the course. So each CSV output that we get here is still on a per-session basis. That's where the next part comes in; we need to combine this data across all sessions.**
 
 If you are interested in how the feature extraction is done here, you may look through the code for the MWE. It is mostly CSV manipulation and data wrangling.
 
 However, I will point out the `extract_users` function used here, which is where we extract user IDs from the clickstream file. The reason why the clickstream file wasn't used in the `extract_coursera_sql_data` step is because the clickstream is in JSON format, not SQL. So, you may find the following example code useful to extract data from the clickstream file.
 
+#### **`extract_users`**
 ```python
 def extract_users(coursera_clickstream_file, course_start, course_end):
     """
@@ -245,7 +247,7 @@ def extract_users(coursera_clickstream_file, course_start, course_end):
 Now we move onto the second major step, `build_course_dataset`, which combines all these per-session tables into one table for the whole course.
 
 
-### build_course_dataset
+### **`build_course_dataset`**
 ```python
 def build_course_dataset(course, label_type):
     dir = '/temp-data/' + course
@@ -267,6 +269,38 @@ def build_course_dataset(course, label_type):
     return
 ```
 
-What this code is doing is taking all the CSVs of forum post frequency from the previous step, and combining them into one table.
+What this code is doing is taking all the CSVs we previously generated, (each user's forum posts each week during each course session), and combining them into one table.
 
-You may look through the code if you wish to understand what it's doing in greater depth.
+You may look through the code if you wish to understand what it's doing in greater depth, but it is mostly data wrangling.
+
+The resulting table looks like this:
+
+|   | userID | week_0_forum_posts | week_1_forum_posts | ... | week_4_forum_posts | label_type | label_value | course | session |
+|---|--------|--------------------|--------------------|-----|--------------------|------------|-------------|--------|---------|
+| 0 | a2f2ed432d514461136c895ab8bc47e23fd0011d | 0 | 0 | ... | 0 | dropout | 1 | accounting | 001 |
+| 1 | a2f2ed432d514461136c895ab8bc47e23fd0011d | 0 | 0 | ... | 0 | dropout | 1 | accounting | 001 |
+| .... | ... | ... | ... | ... | ... | ... | ... | ... | ... |
+| 113905 | dba1c435cdfdaa383458560cf2969c404895abe8 | 0 | 0 | ... | 0 | dropout | 1 | accounting | 001 |
+
+This is output to `/temp-data/course_dataset.csv`, which is again only local to the docker container.
+
+
+Now we move on to the final major part of the job, `train_test_course`.
+
+### **`train_test_course`**
+
+```python
+def train_test_course(course):
+    dataset = pd.read_csv('/temp-data/' + course + '/course_dataset.csv')
+    X = dataset.drop(['label_value'], axis=1)
+    y = dataset['label_value']
+    X_train, X_test, y_train, y_test = train_test_split(
+        X, y, stratify=y, random_state=1)
+    clf = LogisticRegression(random_state=1)
+    clf.fit(X_train, y_train)
+    y_pred = clf.predict(X_test)
+    y_score = clf.predict_proba(X_test)
+    output = pd.DataFrame({'y_true': y_test, 'y_pred': y_pred, 'y_score': [
+                          proba[1] for proba in y_score]})
+    output.to_csv('/output/output.csv', index=False)
+```
