@@ -333,9 +333,9 @@ Next, we predict class labels, and obtain probability estimates for samples in o
 | ... | ... | ... |
 
 
-**This `output.csv` is **NOT** local to the dockerfile; it is saved in the MORF backend.**
+**This `output.csv` is **NOT** local to the dockerfile; it is saved to MORF for evaluation**. For data privacy reasons, users do not have direct access to the `output.csv` file.
 
 
 ## After job execution
 
-This concludes the execution of the MWE. The result, `output.csv` is then evaluated by the MORF on a variety of statistical scores, resulting in a file `eval.csv`, which will be emailed to the submitter when the evaluation has finished.
+This concludes the execution of the MWE. The result, `output.csv` is then evaluated by MORF on a variety of statistical scores, resulting in a file `eval.csv`, which will be emailed to the submitter when the evaluation has finished.
