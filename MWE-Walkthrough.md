@@ -281,18 +281,18 @@ def build_course_dataset(course, label_type):
     return
 ```
 
-What this code is doing is taking all the CSVs we previously generated, (each user's forum posts each week during each course session), and combining them into one table. It also adds a column to indicate whether that student dropped the course or not. (The `label_type` variable was passed in as 'dropout').
+What this code is doing is taking all the CSVs we previously generated, (each user's forum posts each week during each course session), and combining them into one table. It also adds a column to indicate whether that student dropped the course or not. (The `label_type` variable was passed in as 'dropout'). Then, the userID column is dropped.
 
 You may look through the code if you wish to understand what it's doing in greater depth, but it is mostly data wrangling.
 
 The resulting table looks like this:
 
-|   | userID | week_0_forum_posts | week_1_forum_posts | ... | week_4_forum_posts | label_type | label_value | course | session |
-|---|--------|--------------------|--------------------|-----|--------------------|------------|-------------|--------|---------|
-| 0 | a2f2ed432d514461136c895ab8bc47e23fd0011d | 0 | 0 | ... | 0 | dropout | 1 | accounting | 001 |
-| 1 | a2f2ed432d514461136c895ab8bc47e23fd0011d | 0 | 0 | ... | 0 | dropout | 1 | accounting | 001 |
-| .... | ... | ... | ... | ... | ... | ... | ... | ... | ... |
-| 113905 | dba1c435cdfdaa383458560cf2969c404895abe8 | 0 | 0 | ... | 0 | dropout | 1 | accounting | 001 |
+| week_0_forum_posts | week_1_forum_posts | ... | week_4_forum_posts | label_type | label_value | course | session |
+|--------------------|--------------------|-----|--------------------|------------|-------------|--------|---------|
+| 0 | 0 | ... | 0 | dropout | 1 | accounting | 001 |
+| 0 | 0 | ... | 0 | dropout | 1 | accounting | 001 |
+| ... | ... | ... | ... | ... | ... | ... | ... |
+| 0 | 0 | ... | 0 | dropout | 1 | accounting | 001 |
 
 This is output to `/temp-data/course_dataset.csv`, which is again only local to the docker container.
 
